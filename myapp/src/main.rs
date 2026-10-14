@@ -7,8 +7,7 @@ use bytes::BytesMut;
 use myapp_common::NetworkEvent;
 use tokio::signal;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+async fn run() -> Result<()> {
     let mut bpf = Ebpf::load(aya::include_bytes_aligned!(
         "../../target/bpfel-unknown-none/release/myapp-ebpf"
     ))
@@ -84,6 +83,18 @@ async fn main() -> Result<()> {
     }
 
     signal::ctrl_c().await?;
-    println!("\nExiting");
     Ok(())
+}
+
+#[tokio::main]
+async fn main() {
+    match run().await {
+        Ok(()) => {
+            println!("\nApplication stopped gracefully.");
+        }
+        Err(err) => {
+            eprintln!("\nApplication terminated with error: {:#}", err);
+            std::process::exit(1);
+        }
+    }
 }
