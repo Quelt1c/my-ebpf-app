@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "myapp",
+    "myapp-ebpf",
+    "myapp-common",
+]
+resolver = "2"

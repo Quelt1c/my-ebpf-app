@@ -1,0 +1,14 @@
+[package]
+name = "myapp-ebpf"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "myapp-ebpf"
+path = "src/main.rs"
+test = false
+bench = false
+
+[dependencies]
+aya-ebpf = "0.1.1"
+myapp-common = { path = "../myapp-common" }

@@ -1,0 +1,12 @@
+[package]
+name = "myapp-common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aya = { version = "0.13.0", optional = true }
+bytemuck = { version = "1.14", default-features = false, features = ["derive"] }
+
+[features]
+default = []
+user = ["dep:aya"]
