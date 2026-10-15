@@ -17,6 +17,7 @@ async fn run() -> Result<()> {
         ("handle_tcp_sendmsg", "tcp_sendmsg"),
         ("handle_udp_sendmsg", "udp_sendmsg"),
         ("handle_udp_recvmsg", "udp_recvmsg"),
+        ("handle_tcp_recvmsg", "tcp_recvmsg"),
     ];
 
     for (prog_name, fn_name) in probes {
@@ -65,8 +66,9 @@ async fn run() -> Result<()> {
 
                                 let action = match event.direction {
                                     0 => "TCP SEND",
-                                    1 => "UDP SEND",
-                                    2 => "UDP RECV",
+                                    1 => "TCP RECV",
+                                    2 => "UDP SEND",
+                                    3 => "UDP RECV",
                                     _ => "UNKNOWN",
                                 };
 
