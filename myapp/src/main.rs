@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
 use aya::maps::AsyncPerfEventArray;
-use aya::programs::KProbe;
+// use aya::programs::KProbe;
+use aya::programs::FExit;
 use aya::util::online_cpus;
-use aya::Ebpf;
+use aya::{Btf, Ebpf};
 use bytes::BytesMut;
 use myapp_common::NetworkEvent;
 use tokio::signal;
@@ -13,24 +14,48 @@ async fn run() -> Result<()> {
     ))
     .context("Failed to load eBPF bytecode")?;
 
+    // let probes = [
+    //     ("handle_tcp_sendmsg", "tcp_sendmsg"),
+    //     ("handle_udp_sendmsg", "udp_sendmsg"),
+    //     ("handle_udp_recvmsg", "udp_recvmsg"),
+    //     ("handle_tcp_recvmsg", "tcp_recvmsg"),
+    // ];
+    //
+    // for (prog_name, fn_name) in probes {
+    //     let program: &mut KProbe = bpf
+    //         .program_mut(prog_name)
+    //         .with_context(|| format!("Program '{}' not found", prog_name))?
+    //         .try_into()
+    //         .context("Failed to convert program to KProbe")?;
+    //
+    //     program.load().context("Failed to load kprobe program")?;
+    //     program
+    //         .attach(fn_name, 0)
+    //         .with_context(|| format!("Failed to attach kretprobe to '{}'", fn_name))?;
+    // }
+
+    let btf = Btf::from_sys_fs().context("Failed to read kernel BTF")?;
+
     let probes = [
-        ("handle_tcp_sendmsg", "tcp_sendmsg"),
-        ("handle_udp_sendmsg", "udp_sendmsg"),
-        ("handle_udp_recvmsg", "udp_recvmsg"),
-        ("handle_tcp_recvmsg", "tcp_recvmsg"),
+        ("tcp_sendmsg_exit", "tcp_sendmsg"),
+        ("udp_sendmsg_exit", "udp_sendmsg"),
+        ("udp_recvmsg_exit", "udp_recvmsg"),
+        ("tcp_recvmsg_exit", "tcp_recvmsg"),
     ];
 
     for (prog_name, fn_name) in probes {
-        let program: &mut KProbe = bpf
+        let program: &mut FExit = bpf
             .program_mut(prog_name)
             .with_context(|| format!("Program '{}' not found", prog_name))?
             .try_into()
-            .context("Failed to convert program to KProbe")?;
+            .context("Failed to convert program to FExit")?;
 
-        program.load().context("Failed to load kprobe program")?;
         program
-            .attach(fn_name, 0)
-            .with_context(|| format!("Failed to attach kretprobe to '{}'", fn_name))?;
+            .load(fn_name, &btf)
+            .with_context(|| format!("Failed to load fexit program for '{}'", fn_name))?;
+        program
+            .attach()
+            .with_context(|| format!("Failed to attach fexit to '{}'", fn_name))?;
     }
 
     let map = bpf.take_map("EVENTS").context("Map 'EVENTS' not found")?;
