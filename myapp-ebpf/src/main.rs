@@ -2,16 +2,22 @@
 #![no_main]
 
 use aya_ebpf::{
-    helpers::{bpf_get_current_comm, bpf_get_current_pid_tgid, gen::bpf_get_func_ret},
-    macros::{fexit, map},
+    helpers::{
+        bpf_get_current_comm, bpf_get_current_pid_tgid, bpf_get_current_uid_gid,
+        gen::bpf_get_func_ret,
+    },
+    macros::{fexit, map, tracepoint},
     maps::PerfEventArray,
-    programs::FExitContext,
+    programs::{FExitContext, TracePointContext},
     EbpfContext,
 };
-use myapp_common::NetworkEvent;
+use myapp_common::{NetworkEvent, ProcessEvent};
 
 #[map]
-static EVENTS: PerfEventArray<NetworkEvent> = PerfEventArray::new(0);
+static NET_EVENTS: PerfEventArray<NetworkEvent> = PerfEventArray::new(0);
+
+#[map]
+static PROC_EVENTS: PerfEventArray<ProcessEvent> = PerfEventArray::new(0);
 
 // #[kretprobe]
 // pub fn handle_tcp_sendmsg(ctx: RetProbeContext) -> u32 {
@@ -107,7 +113,38 @@ fn process_fexit_event(ctx: &FExitContext, direction: u8) -> Result<(), u32> {
         comm,
     };
 
-    EVENTS.output(ctx, &event, 0);
+    NET_EVENTS.output(ctx, &event, 0);
+
+    Ok(())
+}
+
+#[tracepoint]
+pub fn handle_exec(ctx: TracePointContext) -> u32 {
+    let _ = process_proc_event(&ctx, 0);
+    0
+}
+
+#[tracepoint]
+pub fn handle_exit(ctx: TracePointContext) -> u32 {
+    let _ = process_proc_event(&ctx, 1);
+    0
+}
+
+#[inline(always)]
+fn process_proc_event(ctx: &TracePointContext, event_type: u8) -> Result<(), u32> {
+    let pid = (bpf_get_current_pid_tgid() >> 32) as u32;
+    let uid = bpf_get_current_uid_gid() as u32;
+    let comm = bpf_get_current_comm().map_err(|_| 3u32)?;
+
+    let event = ProcessEvent {
+        pid,
+        event_type,
+        _padding: [0; 3],
+        comm,
+        uid,
+    };
+
+    PROC_EVENTS.output(ctx, &event, 0);
 
     Ok(())
 }
